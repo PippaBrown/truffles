@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>habit tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
+  --text:#e6edf3;--text2:#8b949e;--text3:#6e7681;--border:#30363d;
+    --c-jobs:#00cfff;    --c-jobs-bg:#001a22;   --c-jobs-dim:#004466;
+  --c-news:#bb88ff;    --c-news-bg:#130820;   --c-news-dim:#3a1870;
+  --c-read:#ff44dd;    --c-read-bg:#220020;   --c-read-dim:#660055;
+  --c-music:#ff3333;   --c-music-bg:#1a0000;  --c-music-dim:#660000;
+  --radius:8px;--radius-lg:14px;--radius-xl:20px;
+}
+html,body{background:var(--bg);color:var(--text);font-family:'Space Mono',monospace;font-size:14px;min-height:100vh}
+#app{padding:28px 16px 56px;max-width:430px;margin:0 auto}
+
+.header{margin-bottom:24px;text-align:center;padding-bottom:18px;border-bottom:1px solid var(--border)}
+.title{font-size:24px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.subtitle{font-size:11px;color:var(--text3);margin-top:4px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+
+.habit-card{border-radius:var(--radius-xl);padding:11px 12px;margin-bottom:8px}
+.habit-card.read {background:var(--c-read-bg); border:1.5px solid var(--c-read-dim)}
+.habit-card.jobs {background:var(--c-jobs-bg); border:1.5px solid var(--c-jobs-dim)}
+.habit-card.news {background:var(--c-news-bg); border:1.5px solid var(--c-news-dim)}
+.habit-card.music{background:var(--c-music-bg);border:1.5px solid var(--c-music-dim)}
+
+.habit-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.habit-name{font-size:13px;font-weight:700}
+.habit-card.read  .habit-name{color:var(--c-read)}
+.habit-card.jobs  .habit-name{color:var(--c-jobs)}
+.habit-card.news  .habit-name{color:var(--c-news)}
+.habit-card.music .habit-name{color:var(--c-music)}
+
+.habit-stats{display:flex;gap:5px}
+.habit-stat{text-align:center;background:rgba(255,255,255,.06);border-radius:6px;padding:3px 8px;display:flex;flex-direction:column;justify-content:center}
+.habit-stat-val{font-size:12px;font-weight:700;color:var(--text2)}
+.habit-stat-lbl{font-size:7px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+
+.log-btn{width:100%;padding:5px;border:1.5px dashed var(--border);border-radius:var(--radius);background:rgba(255,255,255,.04);color:var(--text2);font-family:'Space Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;margin-bottom:8px}
+.log-btn.done{border-style:solid;color:#fff}
+.habit-card.read  .log-btn.done{background:var(--c-read); border-color:var(--c-read)}
+.habit-card.jobs  .log-btn.done{background:var(--c-jobs); border-color:var(--c-jobs)}
+.habit-card.news  .log-btn.done{background:var(--c-news); border-color:var(--c-news)}
+.habit-card.music .log-btn.done{background:var(--c-music);border-color:var(--c-music)}
+.log-btn:active{opacity:.8}
+
+.mini-grid{display:grid;gap:2px;width:100%;padding:2px}
+.mg-cell{aspect-ratio:1;border-radius:2px;min-width:0;cursor:pointer}
+.mg-cell.empty{background:transparent;cursor:default;pointer-events:none}
+.mg-cell.unset{background:#2d3348;border:1px solid #3d4460}
+.mg-cell.done-read {background:var(--c-read)}
+.mg-cell.done-jobs {background:var(--c-jobs)}
+.mg-cell.done-news {background:var(--c-news)}
+.mg-cell.done-music{background:var(--c-music)}
+.mg-cell.future{background:#1e2235;opacity:.6;cursor:default;pointer-events:none}
+.mg-cell.today-ring{outline:2px solid var(--text);outline-offset:1px}
+.habit-card.read  .mg-cell.unset{background:#330030;border-color:#990077}
+.habit-card.jobs  .mg-cell.unset{background:#002233;border-color:#006699}
+.habit-card.news  .mg-cell.unset{background:#1a0840;border-color:#5522aa}
+.habit-card.music .mg-cell.unset{background:#2a0000;border-color:#880000}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#111;padding:8px 18px;border-radius:20px;font-size:11px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;z-index:999}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div id="app">
+  <div class="header">
+    <div class="title">daily habits</div>
+    <div class="subtitle">june — december 2026</div>
+  </div>
+  <div id="habits-container"></div>
+</div>
+<script>
+var HABITS=[
+  {id:'jobs', label:'job',       colour:'jobs' },
+  {id:'news', label:'news',      colour:'news' },
+  {id:'read', label:'reading',   colour:'read' },
+  {id:'music',label:'song',      colour:'music'},
+];
+
+var GRID_START=new Date(2026,5,21);
+var GRID_END=new Date(2027,0,2);
+var GRID_COLS=28;
+var GRID_ROWS=7;
+var TOTAL=GRID_COLS*GRID_ROWS;
+
+function dateKey(d){
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function pad(n){return String(n).padStart(2,'0');}
+function fmtDDMM(d){return pad(d.getDate())+'/'+pad(d.getMonth()+1);}
+function todayKey(){return dateKey(new Date());}
+function todayDate(){var d=new Date();d.setHours(0,0,0,0);return d;}
+
+function loadData(){try{return JSON.parse(localStorage.getItem('habits26')||'{}')}catch(e){return {};}}
+function saveData(d){localStorage.setItem('habits26',JSON.stringify(d));}
+
+var data=loadData();
+HABITS.forEach(function(h){if(!data[h.id])data[h.id]={};});
+saveData(data);
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},1800);
+}
+
+function getStreak(habitId){
+  var today=todayDate();
+  var streak=0;
+  var d=new Date(today);
+  while(true){
+    var k=dateKey(d);
+    if(data[habitId][k]) streak++;
+    else if(d<today) break;
+    d.setDate(d.getDate()-1);
+    if(d<GRID_START) break;
+  }
+  return streak;
+}
+
+function getHighestStreak(habitId){
+  var keys=Object.keys(data[habitId]).filter(function(k){return data[habitId][k];}).sort();
+  if(!keys.length) return 0;
+  var best=1,cur=1;
+  for(var i=1;i<keys.length;i++){
+    var prev=new Date(keys[i-1]);
+    var curr=new Date(keys[i]);
+    var diff=(curr-prev)/(1000*60*60*24);
+    if(diff===1){cur++;if(cur>best)best=cur;}
+    else cur=1;
+  }
+  return best;
+}
+
+function getDoneCount(habitId){
+  return Object.keys(data[habitId]).filter(function(k){return data[habitId][k];}).length;
+}
+
+function toggleDay(habitId,k){
+  if(data[habitId][k]) delete data[habitId][k];
+  else data[habitId][k]=true;
+  saveData(data);
+  render();
+  showToast(data[habitId][k]?'logged \u2713':'unmarked');
+}
+
+function buildGrid(habitId){
+  var today=todayDate();
+  var todayK=todayKey();
+  var fragment=document.createDocumentFragment();
+  for(var i=0;i<TOTAL;i++){
+    var d=new Date(GRID_START);
+    d.setDate(GRID_START.getDate()+i);
+    var k=dateKey(d);
+    var cell=document.createElement('div');
+    if(d>GRID_END){
+      cell.className='mg-cell empty';
+    } else {
+      var isFuture=d>today;
+      var isDone=!!data[habitId][k];
+      var isToday=k===todayK;
+      var cls='mg-cell';
+      if(isFuture) cls+=' future';
+      else if(isDone) cls+=' done-'+habitId;
+      else cls+=' unset';
+      if(isToday) cls+=' today-ring';
+      cell.className=cls;
+      cell.title=fmtDDMM(d);
+      if(!isFuture){
+        (function(hid,dk){
+          cell.addEventListener('click',function(){toggleDay(hid,dk);});
+        })(habitId,k);
+      }
+    }
+    fragment.appendChild(cell);
+  }
+  return fragment;
+}
+
+function render(){
+  var container=document.getElementById('habits-container');
+  container.innerHTML='';
+  HABITS.forEach(function(h){
+    var streak=getStreak(h.id);
+    var best=getHighestStreak(h.id);
+    var total=getDoneCount(h.id);
+    var done=!!data[h.id][todayKey()];
+
+    var card=document.createElement('div');
+    card.className='habit-card '+h.colour;
+
+    var header=document.createElement('div');
+    header.className='habit-header';
+    header.innerHTML=
+      '<div class="habit-name">'+h.label+'</div>'+
+      '<div class="habit-stats">'+
+        '<div class="habit-stat"><div class="habit-stat-lbl">current streak</div><div class="habit-stat-val">'+streak+'</div></div>'+
+        '<div class="habit-stat"><div class="habit-stat-lbl">best streak</div><div class="habit-stat-val">'+best+'</div></div>'+
+        '<div class="habit-stat"><div class="habit-stat-lbl">total</div><div class="habit-stat-val">'+total+'</div></div>'+
+      '</div>';
+
+    var btn=document.createElement('button');
+    btn.className='log-btn'+(done?' done':'');
+    btn.textContent=done?'\u2713 done today':'mark as done';
+    btn.addEventListener('click',function(){toggleDay(h.id,todayKey());});
+
+    var grid=document.createElement('div');
+    grid.className='mini-grid';
+    grid.style.gridTemplateColumns='repeat('+GRID_COLS+',1fr)';
+    grid.style.gridTemplateRows='repeat('+GRID_ROWS+',1fr)';
+    grid.style.gridAutoFlow='column';
+    grid.style.aspectRatio=GRID_COLS+'/'+GRID_ROWS;
+    grid.appendChild(buildGrid(h.id));
+
+    card.appendChild(header);
+    card.appendChild(btn);
+    card.appendChild(grid);
+    container.appendChild(card);
+  });
+}
+
+render();
+</script>
+</body>
+</html>
